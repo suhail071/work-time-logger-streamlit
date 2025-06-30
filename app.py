@@ -8,13 +8,20 @@ FILE = "work_log.xlsx"
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
 
+# Session state for toast
+if "just_refreshed" not in st.session_state:
+    st.session_state.just_refreshed = False
+
 
 def generate_time_options():
     times = []
     for h in range(24):
         for m in range(60):
             t = datetime.strptime(f"{h}:{m}", "%H:%M")
-            times.append(t.strftime("%I:%M %p"))
+            times.append({
+                "24h": t.strftime("%H:%M"),
+                "12h": t.strftime("%I:%M %p")
+            })
     return times
 
 
@@ -41,13 +48,25 @@ def add_entry(entry):
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
+# 🔁 Manual Refresh Button with Toast
+col1, col2 = st.columns([1, 9])
+with col1:
+    if st.button("🔁 Refresh"):
+        st.session_state.just_refreshed = True
+        st.rerun()
+
+if st.session_state.just_refreshed:
+    st.success("🥂 Cheers Sameh")
+    st.session_state.just_refreshed = False
+
+# ----------------- INIT -----------------
 today = datetime.now(tz).date()
 log_date = st.date_input("Select Date to View or Log", today)
-
 df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
+
 time_options = generate_time_options()
-current_formatted = current_time.strftime("%I:%M %p")
+current_24h = current_time.strftime("%H:%M")
 
 # ----------------- CHECK-IN / CHECK-OUT -----------------
 checkin_exists = not filtered_df[filtered_df["Activity"] == "Check-in"].empty
@@ -55,12 +74,16 @@ checkout_exists = not filtered_df[filtered_df["Activity"] == "Check-out"].empty
 
 with st.expander("🕐 Check-in / Check-out"):
     if not checkin_exists:
-        selected_checkin = st.selectbox("Check-in Time", time_options, index=time_options.index(current_formatted), key="checkin")
+        checkin_12h = st.selectbox("Check-in Time",
+                                   [t["12h"] for t in time_options],
+                                   index=[t["24h"] for t in time_options].index(current_24h),
+                                   key="checkin")
+
         if st.button("✔️ Save Check-in"):
             entry = {
                 "Date": log_date.strftime("%Y-%m-%d"),
-                "From": selected_checkin,
-                "To": selected_checkin,
+                "From": datetime.strptime(checkin_12h, "%I:%M %p").strftime("%H:%M"),
+                "To": datetime.strptime(checkin_12h, "%I:%M %p").strftime("%H:%M"),
                 "Activity": "Check-in",
                 "Description": "User checked in",
                 "Status": "Closed"
@@ -72,12 +95,16 @@ with st.expander("🕐 Check-in / Check-out"):
         st.info("✅ Check-in already saved for this date.")
 
     if not checkout_exists:
-        selected_checkout = st.selectbox("Check-out Time", time_options, index=time_options.index(current_formatted), key="checkout")
+        checkout_12h = st.selectbox("Check-out Time",
+                                    [t["12h"] for t in time_options],
+                                    index=[t["24h"] for t in time_options].index(current_24h),
+                                    key="checkout")
+
         if st.button("✔️ Save Check-out"):
             entry = {
                 "Date": log_date.strftime("%Y-%m-%d"),
-                "From": selected_checkout,
-                "To": selected_checkout,
+                "From": datetime.strptime(checkout_12h, "%I:%M %p").strftime("%H:%M"),
+                "To": datetime.strptime(checkout_12h, "%I:%M %p").strftime("%H:%M"),
                 "Activity": "Check-out",
                 "Description": "User checked out",
                 "Status": "Closed"
@@ -90,14 +117,23 @@ with st.expander("🕐 Check-in / Check-out"):
 
 # ----------------- MAIN WORK LOG FORM -----------------
 with st.form("log_form"):
-    selected_from = st.selectbox("From Time", time_options, index=time_options.index(current_formatted))
-    selected_to = st.selectbox("To Time", time_options, index=time_options.index(current_formatted))
+    selected_from = st.selectbox("From Time",
+                                 [t["12h"] for t in time_options],
+                                 index=[t["24h"] for t in time_options].index(current_24h),
+                                 key="from_time")
 
-    existing_activities = sorted(df["Activity"].dropna().unique().tolist())
-    activity_options = existing_activities + ["➕ Add New Activity"]
+    selected_to = st.selectbox("To Time",
+                               [t["12h"] for t in time_options],
+                               index=[t["24h"] for t in time_options].index(current_24h),
+                               key="to_time")
+
+    excluded = ["Check-in", "Check-out"]
+    activity_pool = df[~df["Activity"].isin(excluded)]["Activity"].dropna().unique().tolist()
+    activity_options = sorted(activity_pool) + ["➕ Add New Activity"]
+
     activity_choice = st.selectbox("Select Activity", options=activity_options, key="activity_select")
-
     new_activity = ""
+
     if activity_choice == "➕ Add New Activity":
         new_activity = st.text_input("Enter New Activity", key="new_activity_input")
         activity = new_activity.strip()
@@ -114,8 +150,8 @@ with st.form("log_form"):
         else:
             entry = {
                 "Date": log_date.strftime("%Y-%m-%d"),
-                "From": selected_from,
-                "To": selected_to,
+                "From": datetime.strptime(selected_from, "%I:%M %p").strftime("%H:%M"),
+                "To": datetime.strptime(selected_to, "%I:%M %p").strftime("%H:%M"),
                 "Activity": activity,
                 "Description": description,
                 "Status": status
@@ -130,7 +166,11 @@ filtered_df = load_data()
 filtered_df = filtered_df[filtered_df["Date"] == log_date.strftime("%Y-%m-%d")]
 
 if not filtered_df.empty:
-    csv = filtered_df.to_csv(index=False).encode('utf-8')
+    display_df = filtered_df.copy()
+    display_df["From"] = pd.to_datetime(display_df["From"], format="%H:%M").dt.strftime("%I:%M %p")
+    display_df["To"] = pd.to_datetime(display_df["To"], format="%H:%M").dt.strftime("%I:%M %p")
+
+    csv = display_df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Download Logs as CSV",
         data=csv,
@@ -139,7 +179,7 @@ if not filtered_df.empty:
     )
 
     delete_target = None
-    for display_idx, row in filtered_df.iterrows():
+    for display_idx, row in display_df.iterrows():
         real_idx = row.name
         with st.expander(f"{row['From']} – {row['To']} | {row['Activity']} [{row['Status']}]"):
             st.write(f"**Description:** {row['Description']}")
@@ -147,7 +187,7 @@ if not filtered_df.empty:
                 delete_target = real_idx
 
     if delete_target is not None:
-        df.drop(index=delete_target, inplace=True)
+        df = df.drop(index=delete_target)
         save_data(df)
         st.success("✅ Entry deleted.")
         st.rerun()
