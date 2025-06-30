@@ -35,8 +35,8 @@ def add_entry(entry):
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     save_data(df)
 
-st.set_page_config(page_title="Work Time Logger", layout="centered")
-st.title("🕒 Work Time Logger")
+st.set_page_config(page_title="Sameh Work Time Logger", layout="centered")
+st.title("🕒 Sameh Work Time Logger")
 
 col1, col2 = st.columns([1, 9])
 with col1:
