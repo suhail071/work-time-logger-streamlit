@@ -4,6 +4,14 @@ import os
 from datetime import datetime
 import pytz
 
+def generate_time_options():
+    times = []
+    for h in range(24):
+        for m in range(60):
+            t = datetime.strptime(f"{h}:{m}", "%H:%M")
+            times.append(t.strftime("%I:%M %p"))
+    return times
+
 FILE = "work_log.xlsx"
 
 # Get current time in GMT+4
@@ -35,8 +43,15 @@ st.title("🕒 Work Time Logger")
 with st.form("log_form"):
     today = datetime.now(tz).date()
     date = st.date_input("Date", today)
-    from_time = st.time_input("From Time", value=current_time)
-    to_time = st.time_input("To Time", value=current_time)
+time_options = generate_time_options()
+
+selected_from = st.selectbox("From Time", time_options, index=time_options.index(current_time.strftime("%I:%M %p")))
+selected_to = st.selectbox("To Time", time_options, index=time_options.index(current_time.strftime("%I:%M %p")))
+
+# Convert back to time object
+from_time = datetime.strptime(selected_from, "%I:%M %p").time()
+to_time = datetime.strptime(selected_to, "%I:%M %p").time()
+
 
     df = load_data()
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
