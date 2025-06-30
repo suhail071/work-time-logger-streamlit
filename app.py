@@ -6,18 +6,18 @@ from datetime import datetime
 import pytz
 import json
 
+# Timezone setup
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
-spreadsheet_name = st.secrets["google"]["sheet_name"]
 
-# ------------------ Google Sheets Auth ------------------
+# Authenticate Google Sheets API
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(st.secrets["google"]["service_account"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(credentials)
-sheet = client.open(spreadsheet_name).sheet1
+sheet = client.open(st.secrets["google"]["sheet_name"]).sheet1
 
-# ------------------ Data Helpers ------------------
+# Load and save functions
 def get_data():
     records = sheet.get_all_records()
     return pd.DataFrame(records)
@@ -26,24 +26,20 @@ def save_row(entry):
     sheet.append_row([entry[col] for col in ["Date", "From", "To", "Activity", "Description", "Status"]])
 
 def delete_row(index):
-    sheet.delete_rows(index + 2)  # +2 to account for header row and 0-index
+    sheet.delete_rows(index + 2)  # header + 0-index
 
 def generate_time_options():
     times = []
     for h in range(24):
         for m in range(60):
             t = datetime.strptime(f"{h}:{m}", "%H:%M")
-            times.append({
-                "24h": t.strftime("%H:%M"),
-                "12h": t.strftime("%I:%M %p")
-            })
+            times.append({"24h": t.strftime("%H:%M"), "12h": t.strftime("%I:%M %p")})
     return times
 
-# ------------------ Streamlit UI ------------------
+# Streamlit config
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
-# Toast after refresh
 if "just_refreshed" not in st.session_state:
     st.session_state.just_refreshed = False
 
@@ -58,14 +54,20 @@ if st.session_state.just_refreshed:
     st.session_state.just_refreshed = False
 
 # Load data
-df = get_data()
+try:
+    df = get_data()
+except Exception as e:
+    st.error("Failed to load Google Sheet. Please check sharing permissions and sheet name.")
+    st.stop()
+
+# Date handling
 today = datetime.now(tz).date()
 log_date = st.date_input("Select Date to View or Log", today)
 df_day = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 time_options = generate_time_options()
 current_24h = current_time.strftime("%H:%M")
 
-# ------------------ Check-in / Check-out ------------------
+# Check-in/out section
 checkin_exists = not df_day[df_day["Activity"] == "Check-in"].empty
 checkout_exists = not df_day[df_day["Activity"] == "Check-out"].empty
 
@@ -104,11 +106,10 @@ with st.expander("🕐 Check-in / Check-out"):
     else:
         st.info("✅ Check-out already saved.")
 
-# ------------------ Work Log Form ------------------
+# Main work log form
 with st.form("log_form"):
     selected_from = st.selectbox("From Time", [t["12h"] for t in time_options],
                                  index=[t["24h"] for t in time_options].index(current_24h), key="from_time")
-
     selected_to = st.selectbox("To Time", [t["12h"] for t in time_options],
                                index=[t["24h"] for t in time_options].index(current_24h), key="to_time")
 
@@ -137,7 +138,7 @@ with st.form("log_form"):
         st.success("✅ Entry saved.")
         st.rerun()
 
-# ------------------ View & Delete Logs ------------------
+# View and manage logs
 st.header("📋 Logs for " + log_date.strftime("%Y-%m-%d"))
 df_day = get_data()
 df_day = df_day[df_day["Date"] == log_date.strftime("%Y-%m-%d")]
