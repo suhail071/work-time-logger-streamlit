@@ -1,32 +1,15 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import os
 from datetime import datetime
 import pytz
-import json
 
-# Timezone setup
+FILE = "work_log.xlsx"
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
 
-# Authenticate Google Sheets API
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(st.secrets["google"]["service_account"])
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-client = gspread.authorize(credentials)
-sheet = client.open(st.secrets["google"]["sheet_name"]).sheet1
-
-# Load and save functions
-def get_data():
-    records = sheet.get_all_records()
-    return pd.DataFrame(records)
-
-def save_row(entry):
-    sheet.append_row([entry[col] for col in ["Date", "From", "To", "Activity", "Description", "Status"]])
-
-def delete_row(index):
-    sheet.delete_rows(index + 2)  # header + 0-index
+if "just_refreshed" not in st.session_state:
+    st.session_state.just_refreshed = False
 
 def generate_time_options():
     times = []
@@ -36,12 +19,24 @@ def generate_time_options():
             times.append({"24h": t.strftime("%H:%M"), "12h": t.strftime("%I:%M %p")})
     return times
 
-# Streamlit config
+def load_data():
+    if os.path.exists(FILE):
+        return pd.read_excel(FILE)
+    else:
+        df = pd.DataFrame(columns=["Date", "From", "To", "Activity", "Description", "Status"])
+        df.to_excel(FILE, index=False)
+        return df
+
+def save_data(df):
+    df.to_excel(FILE, index=False)
+
+def add_entry(entry):
+    df = load_data()
+    df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
+    save_data(df)
+
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
-
-if "just_refreshed" not in st.session_state:
-    st.session_state.just_refreshed = False
 
 col1, col2 = st.columns([1, 9])
 with col1:
@@ -53,21 +48,16 @@ if st.session_state.just_refreshed:
     st.success("🥂 Cheers Sameh")
     st.session_state.just_refreshed = False
 
-# Load data
-try:
-    df = get_data()
-except Exception as e:
-    st.error("Failed to load Google Sheet. Please check sharing permissions and sheet name.")
-    st.stop()
-
-# Date handling
+# Date and data handling
 today = datetime.now(tz).date()
 log_date = st.date_input("Select Date to View or Log", today)
-df_day = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
+df = load_data()
+filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 time_options = generate_time_options()
 current_24h = current_time.strftime("%H:%M")
 
-# Check-in/out section
+# Check-in/out
+df_day = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 checkin_exists = not df_day[df_day["Activity"] == "Check-in"].empty
 checkout_exists = not df_day[df_day["Activity"] == "Check-out"].empty
 
@@ -76,7 +66,7 @@ with st.expander("🕐 Check-in / Check-out"):
         checkin_12h = st.selectbox("Check-in Time", [t["12h"] for t in time_options],
                                    index=[t["24h"] for t in time_options].index(current_24h), key="checkin")
         if st.button("✔️ Save Check-in"):
-            save_row({
+            add_entry({
                 "Date": log_date.strftime("%Y-%m-%d"),
                 "From": datetime.strptime(checkin_12h, "%I:%M %p").strftime("%H:%M"),
                 "To": datetime.strptime(checkin_12h, "%I:%M %p").strftime("%H:%M"),
@@ -93,7 +83,7 @@ with st.expander("🕐 Check-in / Check-out"):
         checkout_12h = st.selectbox("Check-out Time", [t["12h"] for t in time_options],
                                     index=[t["24h"] for t in time_options].index(current_24h), key="checkout")
         if st.button("✔️ Save Check-out"):
-            save_row({
+            add_entry({
                 "Date": log_date.strftime("%Y-%m-%d"),
                 "From": datetime.strptime(checkout_12h, "%I:%M %p").strftime("%H:%M"),
                 "To": datetime.strptime(checkout_12h, "%I:%M %p").strftime("%H:%M"),
@@ -106,7 +96,7 @@ with st.expander("🕐 Check-in / Check-out"):
     else:
         st.info("✅ Check-out already saved.")
 
-# Main work log form
+# Work log form
 with st.form("log_form"):
     selected_from = st.selectbox("From Time", [t["12h"] for t in time_options],
                                  index=[t["24h"] for t in time_options].index(current_24h), key="from_time")
@@ -127,7 +117,7 @@ with st.form("log_form"):
     submitted = st.form_submit_button("✅ Save Entry")
 
     if submitted and activity:
-        save_row({
+        add_entry({
             "Date": log_date.strftime("%Y-%m-%d"),
             "From": datetime.strptime(selected_from, "%I:%M %p").strftime("%H:%M"),
             "To": datetime.strptime(selected_to, "%I:%M %p").strftime("%H:%M"),
@@ -138,29 +128,30 @@ with st.form("log_form"):
         st.success("✅ Entry saved.")
         st.rerun()
 
-# View and manage logs
+# View logs
 st.header("📋 Logs for " + log_date.strftime("%Y-%m-%d"))
-df_day = get_data()
-df_day = df_day[df_day["Date"] == log_date.strftime("%Y-%m-%d")]
+filtered_df = load_data()
+filtered_df = filtered_df[filtered_df["Date"] == log_date.strftime("%Y-%m-%d")]
 
-if not df_day.empty:
-    df_display = df_day.copy()
-    df_display["From"] = pd.to_datetime(df_display["From"], format="%H:%M", errors="coerce").dt.strftime("%I:%M %p")
-    df_display["To"] = pd.to_datetime(df_display["To"], format="%H:%M", errors="coerce").dt.strftime("%I:%M %p")
+if not filtered_df.empty:
+    display_df = filtered_df.copy()
+    display_df["From"] = pd.to_datetime(display_df["From"], format="%H:%M", errors="coerce").dt.strftime("%I:%M %p")
+    display_df["To"] = pd.to_datetime(display_df["To"], format="%H:%M", errors="coerce").dt.strftime("%I:%M %p")
 
-    csv = df_display.to_csv(index=False).encode("utf-8")
+    csv = display_df.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Download CSV", data=csv,
                        file_name=f"work_log_{log_date.strftime('%Y_%m_%d')}.csv", mime="text/csv")
 
     delete_row_id = None
-    for idx, row in df_display.iterrows():
+    for idx, row in display_df.iterrows():
         with st.expander(f"{row['From']} – {row['To']} | {row['Activity']} [{row['Status']}]"):
             st.write(f"**Description:** {row['Description']}")
             if st.button("❌ Delete This Entry", key=f"del_{idx}"):
-                delete_row_id = idx
+                delete_row_id = row.name
 
     if delete_row_id is not None:
-        delete_row(delete_row_id)
+        df = df.drop(index=delete_row_id)
+        save_data(df)
         st.success("✅ Entry deleted.")
         st.rerun()
 else:
