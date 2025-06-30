@@ -128,7 +128,9 @@ with st.form("log_form"):
                                key="to_time")
 
     excluded = ["Check-in", "Check-out"]
-    activity_pool = df[~df["Activity"].isin(excluded)]["Activity"].dropna().unique().tolist()
+    filtered_df = df[~df["Activity"].isin(excluded)].copy()
+activity_pool = sorted(filtered_df["Activity"].dropna().unique().tolist())
+
     activity_options = sorted(activity_pool) + ["➕ Add New Activity"]
 
     activity_choice = st.selectbox("Select Activity", options=activity_options, key="activity_select")
