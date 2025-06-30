@@ -23,7 +23,7 @@ def add_entry(entry):
     save_data(df)
 
 # Page setup
-st.set_page_config(page_title="Work Time Logger", layout="centered")
+st.set_page_config(page_title="Sameh Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
 # Input Section
