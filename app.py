@@ -35,12 +35,13 @@ with st.form("log_form"):
 
     df = load_data()
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
-    activity = st.selectbox("Select Activity", options=existing_activities + ["➕ Add New Activity"])
+    activity_choice = st.selectbox("Select Activity", options=existing_activities + ["➕ Add New Activity"])
 
-    if activity == "➕ Add New Activity":
+    if activity_choice == "➕ Add New Activity":
         new_activity = st.text_input("Enter New Activity")
-        if new_activity:
-            activity = new_activity
+        activity = new_activity
+    else:
+        activity = activity_choice
 
     notes = st.text_input("Notes (optional)")
     submitted = st.form_submit_button("✅ Save Entry")
@@ -65,7 +66,8 @@ st.header("📋 View & Manage Logs")
 log_date = st.date_input("Select Date to View Logs", today, key="log_date")
 df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
-# Download button for selected day logs
+
+# Download as CSV
 if not filtered_df.empty:
     csv = filtered_df.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -75,14 +77,22 @@ if not filtered_df.empty:
         mime='text/csv',
     )
 
+# Safe deletion using session state
+delete_target = None  # Track which index to delete
+
 if not filtered_df.empty:
-    for i, row in filtered_df.iterrows():
+    for display_idx, row in filtered_df.iterrows():
+        real_idx = row.name  # Index in original dataframe
         with st.expander(f"{row['From']} – {row['To']} | {row['Activity']}"):
             st.write(f"**Notes:** {row['Notes']}")
-            if st.button("❌ Delete This Entry", key=f"delete_{i}"):
-                df.drop(index=i, inplace=True)
-                save_data(df)
-                st.success("✅ Entry deleted.")
-                st.experimental_rerun()
+            if st.button("❌ Delete This Entry", key=f"delete_{real_idx}"):
+                delete_target = real_idx
+
+    # Delete after loop safely
+    if delete_target is not None:
+        df.drop(index=delete_target, inplace=True)
+        save_data(df)
+        st.success("✅ Entry deleted.")
+        st.rerun()
 else:
     st.info("No logs found for the selected date.")
