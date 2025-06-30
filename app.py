@@ -4,13 +4,36 @@ import os
 from datetime import datetime
 import pytz
 
+# === Config ===
 FILE = "work_log.xlsx"
+PASSWORD = "sameh123"
+
+# === Timezone ===
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
 
+# === Session State ===
 if "just_refreshed" not in st.session_state:
     st.session_state.just_refreshed = False
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
+# === Auth ===
+def password_prompt():
+    st.title("🔒 Work Time Logger Login")
+    password_input = st.text_input("Enter password", type="password")
+    if st.button("🔓 Login"):
+        if password_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.experimental_rerun()
+        else:
+            st.error("Incorrect password. Try again.")
+
+if not st.session_state.authenticated:
+    password_prompt()
+    st.stop()
+
+# === App Functions ===
 def generate_time_options():
     times = []
     for h in range(24):
@@ -35,8 +58,9 @@ def add_entry(entry):
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     save_data(df)
 
-st.set_page_config(page_title="Sameh Work Time Logger", layout="centered")
-st.title("🕒 Sameh Work Time Logger")
+# === UI ===
+st.set_page_config(page_title="Work Time Logger", layout="centered")
+st.title("🕒 Work Time Logger")
 
 col1, col2 = st.columns([1, 9])
 with col1:
@@ -48,7 +72,7 @@ if st.session_state.just_refreshed:
     st.success("🥂 Cheers Sameh")
     st.session_state.just_refreshed = False
 
-# Date and data handling
+# === Main Logic ===
 today = datetime.now(tz).date()
 log_date = st.date_input("Select Date to View or Log", today)
 df = load_data()
@@ -58,7 +82,7 @@ current_24h = current_time.strftime("%H:%M")
 time_labels = [t["12h"] for t in time_options]
 default_time = datetime.strptime(current_24h, "%H:%M").strftime("%I:%M %p")
 
-# Check-in/out
+# === Check-in/out ===
 df_day = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 checkin_exists = not df_day[df_day["Activity"] == "Check-in"].empty
 checkout_exists = not df_day[df_day["Activity"] == "Check-out"].empty
@@ -96,7 +120,7 @@ with st.expander("🕐 Check-in / Check-out"):
     else:
         st.info("✅ Check-out already saved.")
 
-# Work log form
+# === Work log form ===
 with st.form("log_form"):
     selected_from = st.select_slider("From Time", options=time_labels, value=default_time, key="from_time")
     selected_to = st.select_slider("To Time", options=time_labels, value=default_time, key="to_time")
@@ -126,7 +150,7 @@ with st.form("log_form"):
         st.success("✅ Entry saved.")
         st.rerun()
 
-# View logs
+# === View logs ===
 st.header("📋 Logs for " + log_date.strftime("%Y-%m-%d"))
 filtered_df = load_data()
 filtered_df = filtered_df[filtered_df["Date"] == log_date.strftime("%Y-%m-%d")]
