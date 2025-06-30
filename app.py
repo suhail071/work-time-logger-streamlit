@@ -37,7 +37,7 @@ with st.form("log_form"):
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
     activity = st.selectbox("Select Activity", options=existing_activities + ["➕ Add New Activity"])
 
-    if activity == "➕ NEW":
+    if activity == "➕ Add New Activity":
         new_activity = st.text_input("Enter New Activity")
         if new_activity:
             activity = new_activity
@@ -77,4 +77,3 @@ if not filtered_df.empty:
                 st.experimental_rerun()
 else:
     st.info("No logs found for the selected date.")
-
