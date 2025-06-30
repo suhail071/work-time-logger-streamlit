@@ -35,13 +35,16 @@ with st.form("log_form"):
 
     df = load_data()
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
-    activity_choice = st.selectbox("Select Activity", options=existing_activities + ["➕ Add New Activity"])
+ activity_options = existing_activities + ["➕ Add New Activity"]
+activity_choice = st.selectbox("Select Activity", options=activity_options, key="activity_select")
 
-    if activity_choice == "➕ Add New Activity":
-        new_activity = st.text_input("Enter New Activity")
-        activity = new_activity
-    else:
-        activity = activity_choice
+new_activity = ""
+if activity_choice == "➕ Add New Activity":
+    new_activity = st.text_input("Enter New Activity", key="new_activity_input")
+    activity = new_activity.strip()
+else:
+    activity = activity_choice
+
 
     notes = st.text_input("Notes (optional)")
     submitted = st.form_submit_button("✅ Save Entry")
