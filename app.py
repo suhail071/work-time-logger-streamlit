@@ -6,7 +6,7 @@ import pytz
 
 # === Config ===
 FILE = "work_log.xlsx"
-PASSWORD = "sameh123"
+PASSWORD = "sameh@5233"
 
 # === Timezone ===
 tz = pytz.timezone("Asia/Dubai")
@@ -25,8 +25,7 @@ def password_prompt():
     if st.button("🔓 Login"):
         if password_input == PASSWORD:
             st.session_state.authenticated = True
-            st.success("✅ Logged in successfully.")
-            st.stop()
+            st.success("✅ Logged in successfully. Please click anywhere or refresh.")
         else:
             st.error("Incorrect password. Try again.")
 
