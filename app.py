@@ -8,10 +8,9 @@ FILE = "work_log.xlsx"
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
 
-# Session state for refresh toast
+# Refresh toast state
 if "just_refreshed" not in st.session_state:
     st.session_state.just_refreshed = False
-
 
 def generate_time_options():
     times = []
@@ -24,7 +23,6 @@ def generate_time_options():
             })
     return times
 
-
 def load_data():
     if os.path.exists(FILE):
         return pd.read_excel(FILE)
@@ -33,22 +31,19 @@ def load_data():
         df.to_excel(FILE, index=False)
         return df
 
-
 def save_data(df):
     df.to_excel(FILE, index=False)
-
 
 def add_entry(entry):
     df = load_data()
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     save_data(df)
 
-
-# Streamlit UI
+# Streamlit config
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
-# 🔁 Manual Refresh Button
+# 🔁 Refresh button
 col1, col2 = st.columns([1, 9])
 with col1:
     if st.button("🔁 Refresh"):
@@ -59,16 +54,15 @@ if st.session_state.just_refreshed:
     st.success("🥂 Cheers Sameh")
     st.session_state.just_refreshed = False
 
-# ----------------- INIT -----------------
+# Initialize data
 today = datetime.now(tz).date()
 log_date = st.date_input("Select Date to View or Log", today)
 df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
-
 time_options = generate_time_options()
 current_24h = current_time.strftime("%H:%M")
 
-# ----------------- CHECK-IN / CHECK-OUT -----------------
+# ------------------ CHECK-IN / CHECK-OUT ------------------
 checkin_exists = not filtered_df[filtered_df["Activity"] == "Check-in"].empty
 checkout_exists = not filtered_df[filtered_df["Activity"] == "Check-out"].empty
 
@@ -78,7 +72,6 @@ with st.expander("🕐 Check-in / Check-out"):
                                    [t["12h"] for t in time_options],
                                    index=[t["24h"] for t in time_options].index(current_24h),
                                    key="checkin")
-
         if st.button("✔️ Save Check-in"):
             entry = {
                 "Date": log_date.strftime("%Y-%m-%d"),
@@ -99,7 +92,6 @@ with st.expander("🕐 Check-in / Check-out"):
                                     [t["12h"] for t in time_options],
                                     index=[t["24h"] for t in time_options].index(current_24h),
                                     key="checkout")
-
         if st.button("✔️ Save Check-out"):
             entry = {
                 "Date": log_date.strftime("%Y-%m-%d"),
@@ -115,7 +107,7 @@ with st.expander("🕐 Check-in / Check-out"):
     else:
         st.info("✅ Check-out already saved for this date.")
 
-# ----------------- MAIN WORK LOG FORM -----------------
+# ------------------ MAIN FORM ------------------
 with st.form("log_form"):
     selected_from = st.selectbox("From Time",
                                  [t["12h"] for t in time_options],
@@ -128,10 +120,9 @@ with st.form("log_form"):
                                key="to_time")
 
     excluded = ["Check-in", "Check-out"]
-    filtered_df = df[~df["Activity"].isin(excluded)].copy()
-activity_pool = sorted(filtered_df["Activity"].dropna().unique().tolist())
-
-    activity_options = sorted(activity_pool) + ["➕ Add New Activity"]
+    filtered_df_for_activities = df[~df["Activity"].isin(excluded)].copy()
+    activity_pool = sorted(filtered_df_for_activities["Activity"].dropna().unique().tolist())
+    activity_options = activity_pool + ["➕ Add New Activity"]
 
     activity_choice = st.selectbox("Select Activity", options=activity_options, key="activity_select")
     new_activity = ""
@@ -162,15 +153,13 @@ activity_pool = sorted(filtered_df["Activity"].dropna().unique().tolist())
             st.success("✅ Entry saved successfully!")
             st.rerun()
 
-# ----------------- VIEW & MANAGE -----------------
+# ------------------ VIEW & MANAGE LOGS ------------------
 st.header("📋 Logs for " + log_date.strftime("%Y-%m-%d"))
 filtered_df = load_data()
 filtered_df = filtered_df[filtered_df["Date"] == log_date.strftime("%Y-%m-%d")]
 
 if not filtered_df.empty:
     display_df = filtered_df.copy()
-
-    # Safely convert and format 'From' and 'To' columns
     display_df["From"] = pd.to_datetime(display_df["From"], format="%H:%M", errors="coerce")
     display_df["To"] = pd.to_datetime(display_df["To"], format="%H:%M", errors="coerce")
     display_df = display_df.dropna(subset=["From", "To"])
