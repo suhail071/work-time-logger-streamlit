@@ -1,4 +1,4 @@
-import streamlit as st
+""import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
@@ -55,6 +55,8 @@ df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 time_options = generate_time_options()
 current_24h = current_time.strftime("%H:%M")
+time_labels = [t["12h"] for t in time_options]
+default_time = datetime.strptime(current_24h, "%H:%M").strftime("%I:%M %p")
 
 # Check-in/out
 df_day = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
@@ -63,8 +65,7 @@ checkout_exists = not df_day[df_day["Activity"] == "Check-out"].empty
 
 with st.expander("🕐 Check-in / Check-out"):
     if not checkin_exists:
-        checkin_12h = st.selectbox("Check-in Time", [t["12h"] for t in time_options],
-                                   index=[t["24h"] for t in time_options].index(current_24h), key="checkin")
+        checkin_12h = st.select_slider("Check-in Time", options=time_labels, value=default_time, key="checkin")
         if st.button("✔️ Save Check-in"):
             add_entry({
                 "Date": log_date.strftime("%Y-%m-%d"),
@@ -80,8 +81,7 @@ with st.expander("🕐 Check-in / Check-out"):
         st.info("✅ Check-in already saved.")
 
     if not checkout_exists:
-        checkout_12h = st.selectbox("Check-out Time", [t["12h"] for t in time_options],
-                                    index=[t["24h"] for t in time_options].index(current_24h), key="checkout")
+        checkout_12h = st.select_slider("Check-out Time", options=time_labels, value=default_time, key="checkout")
         if st.button("✔️ Save Check-out"):
             add_entry({
                 "Date": log_date.strftime("%Y-%m-%d"),
@@ -98,14 +98,8 @@ with st.expander("🕐 Check-in / Check-out"):
 
 # Work log form
 with st.form("log_form"):
-    time_labels = [t["12h"] for t in time_options]
-    default_time = datetime.strptime(current_24h, "%H:%M").strftime("%I:%M %p")
-
-    selected_from = st.select_slider("From Time", options=time_labels,
-                                     value=default_time, key="from_time")
-
-    selected_to = st.select_slider("To Time", options=time_labels,
-                                   value=default_time, key="to_time")
+    selected_from = st.select_slider("From Time", options=time_labels, value=default_time, key="from_time")
+    selected_to = st.select_slider("To Time", options=time_labels, value=default_time, key="to_time")
 
     excluded = ["Check-in", "Check-out"]
     activity_pool = sorted(df[~df["Activity"].isin(excluded)]["Activity"].dropna().unique().tolist())
