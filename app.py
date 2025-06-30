@@ -8,7 +8,7 @@ FILE = "work_log.xlsx"
 tz = pytz.timezone("Asia/Dubai")
 current_time = datetime.now(tz).time()
 
-# Session state for toast
+# Session state for refresh toast
 if "just_refreshed" not in st.session_state:
     st.session_state.just_refreshed = False
 
@@ -48,7 +48,7 @@ def add_entry(entry):
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
-# 🔁 Manual Refresh Button with Toast
+# 🔁 Manual Refresh Button
 col1, col2 = st.columns([1, 9])
 with col1:
     if st.button("🔁 Refresh"):
@@ -167,8 +167,14 @@ filtered_df = filtered_df[filtered_df["Date"] == log_date.strftime("%Y-%m-%d")]
 
 if not filtered_df.empty:
     display_df = filtered_df.copy()
-    display_df["From"] = pd.to_datetime(display_df["From"], format="%H:%M").dt.strftime("%I:%M %p")
-    display_df["To"] = pd.to_datetime(display_df["To"], format="%H:%M").dt.strftime("%I:%M %p")
+
+    # Safely convert and format 'From' and 'To' columns
+    display_df["From"] = pd.to_datetime(display_df["From"], format="%H:%M", errors="coerce")
+    display_df["To"] = pd.to_datetime(display_df["To"], format="%H:%M", errors="coerce")
+    display_df = display_df.dropna(subset=["From", "To"])
+
+    display_df["From"] = display_df["From"].dt.strftime("%I:%M %p")
+    display_df["To"] = display_df["To"].dt.strftime("%I:%M %p")
 
     csv = display_df.to_csv(index=False).encode('utf-8')
     st.download_button(
