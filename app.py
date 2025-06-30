@@ -59,8 +59,8 @@ def add_entry(entry):
     save_data(df)
 
 # === UI ===
-st.set_page_config(page_title="Work Time Logger", layout="centered")
-st.title("🕒 Work Time Logger")
+st.set_page_config(page_title="Sameh's Work Time Logger", layout="centered")
+st.title("🕒 Sameh's Work Time Logger")
 
 col1, col2 = st.columns([1, 9])
 with col1:
