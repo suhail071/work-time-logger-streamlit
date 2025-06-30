@@ -22,14 +22,13 @@ if "authenticated" not in st.session_state:
 def password_prompt():
     st.title("🔒 Work Time Logger Login")
     password_input = st.text_input("Enter password", type="password")
-   if st.button("🔓 Login"):
-    if password_input == PASSWORD:
-        st.session_state.authenticated = True
-        st.success("✅ Logged in successfully.")
-        st.stop()  # stops and reruns next time
-    else:
-        st.error("Incorrect password. Try again.")
-
+    if st.button("🔓 Login"):
+        if password_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.success("✅ Logged in successfully.")
+            st.stop()
+        else:
+            st.error("Incorrect password. Try again.")
 
 if not st.session_state.authenticated:
     password_prompt()
