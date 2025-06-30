@@ -2,8 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+import pytz
 
 FILE = "work_log.xlsx"
+
+# Get current time in GMT+4
+tz = pytz.timezone("Asia/Dubai")
+current_time = datetime.now(tz).time()
 
 # Load or create Excel file
 def load_data():
@@ -23,15 +28,15 @@ def add_entry(entry):
     save_data(df)
 
 # Page setup
-st.set_page_config(page_title="Sameh Work Time Logger", layout="centered")
+st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
 # Input Section
 with st.form("log_form"):
-    today = datetime.now().date()
+    today = datetime.now(tz).date()
     date = st.date_input("Date", today)
-    from_time = st.time_input("From Time")
-    to_time = st.time_input("To Time")
+    from_time = st.time_input("From Time", value=current_time)
+    to_time = st.time_input("To Time", value=current_time)
 
     df = load_data()
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
