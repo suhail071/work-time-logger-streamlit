@@ -65,6 +65,15 @@ st.header("📋 View & Manage Logs")
 log_date = st.date_input("Select Date to View Logs", today, key="log_date")
 df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
+# Download button for selected day logs
+if not filtered_df.empty:
+    csv = filtered_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download Logs as CSV",
+        data=csv,
+        file_name=f"work_log_{log_date.strftime('%Y_%m_%d')}.csv",
+        mime='text/csv',
+    )
 
 if not filtered_df.empty:
     for i, row in filtered_df.iterrows():
