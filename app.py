@@ -4,6 +4,13 @@ import os
 from datetime import datetime
 import pytz
 
+FILE = "work_log.xlsx"
+
+# Timezone
+tz = pytz.timezone("Asia/Dubai")
+current_time = datetime.now(tz).time()
+
+# Create list of all times in 1-minute intervals, AM/PM format
 def generate_time_options():
     times = []
     for h in range(24):
@@ -12,13 +19,7 @@ def generate_time_options():
             times.append(t.strftime("%I:%M %p"))
     return times
 
-FILE = "work_log.xlsx"
-
-# Get current time in GMT+4
-tz = pytz.timezone("Asia/Dubai")
-current_time = datetime.now(tz).time()
-
-# Load or create Excel file
+# Excel handlers
 def load_data():
     if os.path.exists(FILE):
         return pd.read_excel(FILE)
@@ -35,23 +36,23 @@ def add_entry(entry):
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     save_data(df)
 
-# Page setup
+# Streamlit UI setup
 st.set_page_config(page_title="Work Time Logger", layout="centered")
 st.title("🕒 Work Time Logger")
 
-# Input Section
+# ----------------- FORM SECTION -----------------
 with st.form("log_form"):
     today = datetime.now(tz).date()
     date = st.date_input("Date", today)
-time_options = generate_time_options()
 
-selected_from = st.selectbox("From Time", time_options, index=time_options.index(current_time.strftime("%I:%M %p")))
-selected_to = st.selectbox("To Time", time_options, index=time_options.index(current_time.strftime("%I:%M %p")))
+    time_options = generate_time_options()
+    current_formatted = current_time.strftime("%I:%M %p")
 
-# Convert back to time object
-from_time = datetime.strptime(selected_from, "%I:%M %p").time()
-to_time = datetime.strptime(selected_to, "%I:%M %p").time()
+    selected_from = st.selectbox("From Time", time_options, index=time_options.index(current_formatted))
+    selected_to = st.selectbox("To Time", time_options, index=time_options.index(current_formatted))
 
+    from_time = datetime.strptime(selected_from, "%I:%M %p").time()
+    to_time = datetime.strptime(selected_to, "%I:%M %p").time()
 
     df = load_data()
     existing_activities = sorted(df["Activity"].dropna().unique().tolist())
@@ -82,14 +83,14 @@ to_time = datetime.strptime(selected_to, "%I:%M %p").time()
             add_entry(entry)
             st.success("✅ Entry saved successfully!")
 
-# View & Delete Section
+# ----------------- VIEW & DELETE SECTION -----------------
 st.header("📋 View & Manage Logs")
 
 log_date = st.date_input("Select Date to View Logs", today, key="log_date")
 df = load_data()
 filtered_df = df[df["Date"] == log_date.strftime("%Y-%m-%d")]
 
-# Download CSV button
+# Download filtered logs
 if not filtered_df.empty:
     csv = filtered_df.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -99,7 +100,7 @@ if not filtered_df.empty:
         mime='text/csv',
     )
 
-# Safe deletion handling
+# Delete entry UI
 delete_target = None
 
 if not filtered_df.empty:
