@@ -98,10 +98,14 @@ with st.expander("🕐 Check-in / Check-out"):
 
 # Work log form
 with st.form("log_form"):
-    selected_from = st.selectbox("From Time", [t["12h"] for t in time_options],
-                                 index=[t["24h"] for t in time_options].index(current_24h), key="from_time")
-    selected_to = st.selectbox("To Time", [t["12h"] for t in time_options],
-                               index=[t["24h"] for t in time_options].index(current_24h), key="to_time")
+    time_labels = [t["12h"] for t in time_options]
+    default_time = datetime.strptime(current_24h, "%H:%M").strftime("%I:%M %p")
+
+    selected_from = st.select_slider("From Time", options=time_labels,
+                                     value=default_time, key="from_time")
+
+    selected_to = st.select_slider("To Time", options=time_labels,
+                                   value=default_time, key="to_time")
 
     excluded = ["Check-in", "Check-out"]
     activity_pool = sorted(df[~df["Activity"].isin(excluded)]["Activity"].dropna().unique().tolist())
